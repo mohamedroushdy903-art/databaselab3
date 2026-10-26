@@ -1,0 +1,401 @@
+{% extends 'base.html' %}
+
+{% block title %}Authors Management - ANU Library (Lab 3){% endblock %}
+
+{% block content %}
+<div class="library-container">
+    <!-- Header Banner -->
+    <div class="dashboard-header glassmorphism">
+        <div class="welcome-section">
+            <div class="library-header-badge">
+                <i class="fa-solid fa-feather-pointed"></i>
+            </div>
+            <div class="welcome-text">
+                <h1>Authors Registry</h1>
+                <p>
+                    <span class="badge-pill" style="background: rgba(99, 102, 241, 0.25); color: #c7d2fe;">
+                        <i class="fa-solid fa-users"></i> <strong>{{ total_authors }}</strong> registered author(s)
+                    </span>
+                    &bull; Relational Schema: <code>AUTHOR (author_id, name, country)</code>
+                </p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('library_books') }}" class="btn btn-sm btn-outline-primary" id="btnGoBooks">
+                <i class="fa-solid fa-book"></i> View Books Table
+            </a>
+            <button type="button" class="btn btn-sm btn-primary" id="btnOpenAddAuthorModal" onclick="openAddAuthorModal()">
+                <i class="fa-solid fa-user-plus"></i> Add New Author
+            </button>
+        </div>
+    </div>
+
+    <!-- Live Search & Info Bar -->
+    <div class="glassmorphism filter-bar">
+        <div class="search-box-wrapper">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="authorSearchInput" class="form-control" placeholder="Search authors by name, country, or ID..." oninput="filterAuthorsTable()">
+        </div>
+        <div class="schema-note">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>Deleting an author automatically removes their books via <strong>ON DELETE CASCADE</strong>.</span>
+        </div>
+    </div>
+
+    <!-- Authors Table (F2.1) -->
+    <div class="card glassmorphism table-card">
+        <div class="card-header table-header-flex">
+            <h3><i class="fa-solid fa-table-list"></i> Registered Authors Table (F2.1)</h3>
+            <span class="badge-pill bg-dark-subtle">Primary Key: <code>author_id</code></span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="data-table" id="authorsTable">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">Portrait</th>
+                        <th style="width: 100px;">Author ID</th>
+                        <th>Author Name</th>
+                        <th>Country</th>
+                        <th style="width: 120px;">Books Count</th>
+                        <th style="width: 170px; text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="authorsTableBody">
+                    {% if authors %}
+                        {% for a in authors %}
+                        <tr class="author-row" id="author-row-{{ a.author_id }}" data-name="{{ a.name | lower }}" data-country="{{ a.country | lower }}" data-id="{{ a.author_id }}">
+                            <!-- Portrait Thumbnail (Bonus Feature) -->
+                            <td class="td-portrait">
+                                {% if a.photo_path %}
+                                    <img src="{{ url_for('static', filename=a.photo_path.replace('static/', '')) }}" 
+                                         alt="Portrait of {{ a.name }}" 
+                                         class="author-thumbnail"
+                                         onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'avatar-fallback\'>{{ a.name[0] | upper }}</div>';">
+                                {% else %}
+                                    <div class="avatar-fallback" title="No portrait uploaded">
+                                        {{ a.name[0] | upper }}
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <!-- Author ID (Primary Key) -->
+                            <td>
+                                <span class="badge-id">#{{ a.author_id }}</span>
+                            </td>
+                            <!-- Name -->
+                            <td class="author-name-cell">
+                                <strong>{{ a.name }}</strong>
+                            </td>
+                            <!-- Country -->
+                            <td>
+                                <span class="badge-country"><i class="fa-solid fa-earth-americas"></i> {{ a.country }}</span>
+                            </td>
+                            <!-- Linked Books Count -->
+                            <td>
+                                {% set count = book_counts.get(a.author_id, 0) %}
+                                <span class="badge-books-count {% if count > 0 %}active{% else %}empty{% endif %}">
+                                    <i class="fa-solid fa-book"></i> {{ count }} book(s)
+                                </span>
+                            </td>
+                            <!-- Actions: Edit & Delete (F2.3, F2.5) -->
+                            <td class="td-actions">
+                                <div class="action-buttons-group">
+                                    <button type="button" 
+                                            class="btn btn-xs btn-outline-warning btn-edit-author"
+                                            id="btn-edit-author-{{ a.author_id }}"
+                                            onclick='openEditAuthorModal({{ a.author_id }}, {{ a.name | tojson }}, {{ a.country | tojson }}, {{ (url_for("static", filename=a.photo_path.replace("static/", "")) if a.photo_path else "") | tojson }})'>
+                                        <i class="fa-solid fa-pen-to-square"></i> Edit
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-xs btn-outline-danger btn-delete-author"
+                                            id="btn-delete-author-{{ a.author_id }}"
+                                            onclick='confirmDeleteAuthor({{ a.author_id }}, {{ a.name | tojson }}, {{ book_counts.get(a.author_id, 0) }})'>
+                                        <i class="fa-solid fa-trash-can"></i> Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr id="noAuthorsRow">
+                            <td colspan="6" class="text-center empty-table-state">
+                                <div class="empty-state-content">
+                                    <i class="fa-solid fa-user-slash empty-icon"></i>
+                                    <h4>No Authors Found</h4>
+                                    <p>Start by creating your first author record in the library database.</p>
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="openAddAuthorModal()">
+                                        <i class="fa-solid fa-plus"></i> Add Author Now
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- =========================================================================
+     MODAL: Add New Author (F2.2 & Bonus)
+     ========================================================================= -->
+<div class="modal-overlay" id="addAuthorModal">
+    <div class="modal-dialog glassmorphism">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-user-plus text-primary"></i> Add New Author (F2.2)</h3>
+            <button type="button" class="modal-close-btn" onclick="closeAddAuthorModal()">&times;</button>
+        </div>
+        <form action="{{ url_for('add_author') }}" method="POST" enctype="multipart/form-data" id="addAuthorForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="addAuthorName">Author Name *</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-user input-icon"></i>
+                        <input type="text" id="addAuthorName" name="name" class="form-control" placeholder="e.g. Naguib Mahfouz" required autofocus>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="addAuthorCountry">Country of Origin *</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-earth-africa input-icon"></i>
+                        <input type="text" id="addAuthorCountry" name="country" class="form-control" placeholder="e.g. Egypt" required>
+                    </div>
+                </div>
+
+                <!-- Bonus Image Upload -->
+                <div class="form-group">
+                    <label for="addAuthorPhoto">
+                        <i class="fa-solid fa-image text-primary"></i> Author Portrait Photo <span class="badge-bonus">Bonus</span>
+                    </label>
+                    <div class="upload-dropzone" onclick="document.getElementById('addAuthorPhoto').click()">
+                        <input type="file" id="addAuthorPhoto" name="photo" accept=".jpg,.jpeg,.png,.webp" style="display: none;" onchange="previewUploadImage(this, 'addPhotoPreview', 'addPhotoPlaceholder')">
+                        <div id="addPhotoPlaceholder" class="dropzone-placeholder">
+                            <i class="fa-solid fa-cloud-arrow-up dropzone-icon"></i>
+                            <p>Click to select portrait (JPEG, PNG, WebP &bull; Max 5MB)</p>
+                        </div>
+                        <div id="addPhotoPreview" class="dropzone-preview" style="display: none;">
+                            <img src="" alt="Portrait preview" id="addPhotoImg" class="preview-thumbnail">
+                            <p class="preview-filename" id="addPhotoFilename"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-danger" onclick="closeAddAuthorModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="btnSubmitAddAuthor">
+                    <i class="fa-solid fa-check"></i> Save Author
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- =========================================================================
+     MODAL: Edit Author (F2.3 & Bonus)
+     ========================================================================= -->
+<div class="modal-overlay" id="editAuthorModal">
+    <div class="modal-dialog glassmorphism">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-pen-to-square text-warning"></i> Edit Author Record (F2.3)</h3>
+            <button type="button" class="modal-close-btn" onclick="closeEditAuthorModal()">&times;</button>
+        </div>
+        <form action="" method="POST" enctype="multipart/form-data" id="editAuthorForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="editAuthorIdDisplay">Author ID (Primary Key)</label>
+                    <input type="text" id="editAuthorIdDisplay" class="form-control" disabled style="opacity: 0.7; background: rgba(0,0,0,0.3);">
+                </div>
+
+                <div class="form-group">
+                    <label for="editAuthorName">Author Name *</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-user input-icon"></i>
+                        <input type="text" id="editAuthorName" name="name" class="form-control" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="editAuthorCountry">Country *</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-earth-americas input-icon"></i>
+                        <input type="text" id="editAuthorCountry" name="country" class="form-control" required>
+                    </div>
+                </div>
+
+                <!-- Bonus Image Replacement with Preservation -->
+                <div class="form-group">
+                    <label for="editAuthorPhoto">
+                        <i class="fa-solid fa-camera text-primary"></i> Change Portrait Photo <span class="badge-bonus">Bonus</span>
+                    </label>
+                    <p class="form-hint" style="margin-bottom: 0.5rem;">Leave empty to keep the currently stored portrait.</p>
+                    <div class="upload-dropzone" onclick="document.getElementById('editAuthorPhoto').click()">
+                        <input type="file" id="editAuthorPhoto" name="photo" accept=".jpg,.jpeg,.png,.webp" style="display: none;" onchange="previewUploadImage(this, 'editPhotoPreview', 'editPhotoPlaceholder')">
+                        <div id="editPhotoPlaceholder" class="dropzone-placeholder">
+                            <img src="" id="editCurrentPhotoImg" class="preview-thumbnail" style="display: none; margin: 0 auto 0.5rem;" alt="Current portrait">
+                            <p id="editPhotoStatusText"><i class="fa-solid fa-arrows-rotate"></i> Click to choose a replacement portrait</p>
+                        </div>
+                        <div id="editPhotoPreview" class="dropzone-preview" style="display: none;">
+                            <img src="" alt="New preview" id="editPhotoImg" class="preview-thumbnail">
+                            <p class="preview-filename" id="editPhotoFilename"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-danger" onclick="closeEditAuthorModal()">Cancel</button>
+                <button type="submit" class="btn btn-warning" id="btnSubmitEditAuthor">
+                    <i class="fa-solid fa-floppy-disk"></i> Update Author
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- =========================================================================
+     MODAL: Confirm Delete Author (F2.5 - ON DELETE CASCADE Warning)
+     ========================================================================= -->
+<div class="modal-overlay" id="deleteAuthorModal">
+    <div class="modal-dialog glassmorphism modal-warning-border">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-triangle-exclamation text-danger"></i> Confirm Author Deletion (F2.5)</h3>
+            <button type="button" class="modal-close-btn" onclick="closeDeleteAuthorModal()">&times;</button>
+        </div>
+        <form action="" method="POST" id="deleteAuthorForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            
+            <div class="modal-body">
+                <p>Are you sure you want to delete author <strong id="deleteAuthorNamePrompt" class="text-white"></strong> (ID #<span id="deleteAuthorIdPrompt"></span>)?</p>
+                
+                <div class="alert alert-danger" style="margin-top: 1rem;">
+                    <i class="fa-solid fa-burst alert-icon"></i>
+                    <div>
+                        <strong>Relational Cascade Warning:</strong>
+                        <p style="margin: 0.35rem 0 0; font-size: 0.9rem;">
+                            This author currently has <strong id="deleteAuthorBooksCount">0</strong> associated book(s). 
+                            Because of the foreign key constraint with <code>ON DELETE CASCADE</code>, 
+                            deleting this author will <strong>automatically delete all of their books</strong> from the <code>BOOK</code> table!
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-danger" onclick="closeDeleteAuthorModal()">No, Keep Author</button>
+                <button type="submit" class="btn btn-danger" id="btnConfirmDeleteAuthor">
+                    <i class="fa-solid fa-trash-can"></i> Yes, Delete Author & Books
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Filter authors live
+function filterAuthorsTable() {
+    const q = document.getElementById('authorSearchInput').value.toLowerCase().trim();
+    const rows = document.querySelectorAll('.author-row');
+    let visibleCount = 0;
+
+    rows.forEach(r => {
+        const name = r.getAttribute('data-name');
+        const country = r.getAttribute('data-country');
+        const id = r.getAttribute('data-id');
+        if (name.includes(q) || country.includes(q) || id.includes(q)) {
+            r.style.display = '';
+            visibleCount++;
+        } else {
+            r.style.display = 'none';
+        }
+    });
+}
+
+// Add Modal
+function openAddAuthorModal() {
+    document.getElementById('addAuthorForm').reset();
+    document.getElementById('addPhotoPreview').style.display = 'none';
+    document.getElementById('addPhotoPlaceholder').style.display = 'block';
+    document.getElementById('addAuthorModal').classList.add('active');
+}
+function closeAddAuthorModal() {
+    document.getElementById('addAuthorModal').classList.remove('active');
+}
+
+// Edit Modal
+function openEditAuthorModal(id, name, country, photoUrl) {
+    const form = document.getElementById('editAuthorForm');
+    form.action = '/authors/' + id + '/edit';
+    document.getElementById('editAuthorIdDisplay').value = 'Author ID #' + id;
+    document.getElementById('editAuthorName').value = name;
+    document.getElementById('editAuthorCountry').value = country;
+    
+    const currImg = document.getElementById('editCurrentPhotoImg');
+    const statusText = document.getElementById('editPhotoStatusText');
+    if (photoUrl) {
+        currImg.src = photoUrl;
+        currImg.style.display = 'block';
+        statusText.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Click to change stored portrait (or leave empty to keep)';
+    } else {
+        currImg.style.display = 'none';
+        statusText.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> No portrait currently. Click to upload one.';
+    }
+    
+    document.getElementById('editPhotoPreview').style.display = 'none';
+    document.getElementById('editPhotoPlaceholder').style.display = 'block';
+    document.getElementById('editAuthorModal').classList.add('active');
+}
+function closeEditAuthorModal() {
+    document.getElementById('editAuthorModal').classList.remove('active');
+}
+
+// Delete Confirmation Modal
+function confirmDeleteAuthor(id, name, booksCount) {
+    const form = document.getElementById('deleteAuthorForm');
+    form.action = '/authors/' + id + '/delete';
+    document.getElementById('deleteAuthorIdPrompt').textContent = id;
+    document.getElementById('deleteAuthorNamePrompt').textContent = name;
+    document.getElementById('deleteAuthorBooksCount').textContent = booksCount;
+    document.getElementById('deleteAuthorModal').classList.add('active');
+}
+function closeDeleteAuthorModal() {
+    document.getElementById('deleteAuthorModal').classList.remove('active');
+}
+
+// Generic Image Upload Preview
+function previewUploadImage(input, previewContainerId, placeholderId) {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        
+        // 5MB Client Check
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File exceeds 5MB size limit. Please choose a smaller image.');
+            input.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const previewBox = document.getElementById(previewContainerId);
+            const placeholder = document.getElementById(placeholderId);
+            const img = previewBox.querySelector('img');
+            const fname = previewBox.querySelector('.preview-filename');
+            
+            img.src = e.target.result;
+            if (fname) fname.textContent = file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+            
+            placeholder.style.display = 'none';
+            previewBox.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+}
+</script>
+{% endblock %}

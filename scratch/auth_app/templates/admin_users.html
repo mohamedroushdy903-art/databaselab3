@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+
+{% block title %}Database Tables Viewer - ANU Lab 2 (Admin Panel){% endblock %}
+
+{% block content %}
+<div class="dashboard-container" style="max-width: 1100px; margin: 0 auto; width: 100%;">
+    <div class="dashboard-header glassmorphism">
+        <div class="welcome-section">
+            <div class="auth-icon-badge" style="margin: 0; background: linear-gradient(135deg, #ef4444, #f59e0b);">
+                <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <div class="welcome-text">
+                <h1>Administrator Database Panel</h1>
+                <p>Manage, inspect, and delete live records from <code>users.db</code></p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-primary">
+                <i class="fa-solid fa-arrow-left"></i> Back to My To-Dos
+            </a>
+        </div>
+    </div>
+
+    <!-- Table 1: Users -->
+    <div class="card glassmorphism" style="margin-bottom: 2rem;">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <h3><i class="fa-solid fa-users"></i> Table 1: <code>users</code> ({{ users|length }} records)</h3>
+            <span class="badge-pill">PK: id (AUTOINCREMENT)</span>
+        </div>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; color: var(--text-primary); font-size: 0.95rem;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--border-color); background: rgba(255, 255, 255, 0.05);">
+                        <th style="padding: 1rem;">id</th>
+                        <th style="padding: 1rem;">full_name</th>
+                        <th style="padding: 1rem;">email (UNIQUE)</th>
+                        <th style="padding: 1rem;">Role</th>
+                        <th style="padding: 1rem;">password_hash</th>
+                        <th style="padding: 1rem;">created_at</th>
+                        <th style="padding: 1rem; text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 1rem;"><span class="badge-pill">#{{ u['id'] }}</span></td>
+                        <td style="padding: 1rem; font-weight: 600;">{{ u['full_name'] }}</td>
+                        <td style="padding: 1rem; color: #93c5fd;">{{ u['email'] }}</td>
+                        <td style="padding: 1rem;">
+                            {% if u['is_admin'] %}
+                                <span class="badge-pill" style="background: rgba(239,68,68,0.2); color: #fca5a5; border-color: rgba(239,68,68,0.3);">
+                                    <i class="fa-solid fa-shield"></i> Admin
+                                </span>
+                            {% else %}
+                                <span class="badge-pill" style="background: rgba(148,163,184,0.15); color: #cbd5e1;">
+                                    User
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 1rem;">
+                            <code style="background: rgba(0,0,0,0.4); padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.75rem; color: #a5b4fc; word-break: break-all; display: block; max-width: 200px;">
+                                {{ u['password_hash'] }}
+                            </code>
+                        </td>
+                        <td style="padding: 1rem; color: var(--text-secondary); font-size: 0.85rem;">{{ u['created_at'] }}</td>
+                        <td style="padding: 1rem; text-align: center;">
+                            {% if u['id'] == session['user_id'] %}
+                                <span class="badge-pill" style="background: rgba(99,102,241,0.2); color: #a5b4fc;">You</span>
+                            {% else %}
+                                <form action="{{ url_for('admin_delete_user', user_id=u['id']) }}" method="POST" onsubmit="return confirm('⚠️ Warning: Deleting user {{ u['full_name'] }} will automatically delete all their to-do items via ON DELETE CASCADE. Proceed?');" style="margin: 0;">
+                                    <button type="submit" class="btn btn-sm btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.82rem;">
+                                        <i class="fa-solid fa-trash-can"></i> Delete
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">No users found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Table 2: Todos -->
+    <div class="card glassmorphism">
+        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <h3><i class="fa-solid fa-list-check"></i> Table 2: <code>todos</code> ({{ todos|length }} records)</h3>
+            <span class="badge-pill" style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border-color: rgba(16, 185, 129, 0.3);">
+                FK: user_id ➔ users(id) ON DELETE CASCADE
+            </span>
+        </div>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; color: var(--text-primary); font-size: 0.95rem;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--border-color); background: rgba(255, 255, 255, 0.05);">
+                        <th style="padding: 1rem;">id</th>
+                        <th style="padding: 1rem;">user_id (FK)</th>
+                        <th style="padding: 1rem;">Author</th>
+                        <th style="padding: 1rem;">title</th>
+                        <th style="padding: 1rem;">due_date</th>
+                        <th style="padding: 1rem;">Status</th>
+                        <th style="padding: 1rem;">created_at</th>
+                        <th style="padding: 1rem; text-align: center;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in todos %}
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 1rem;"><span class="badge-pill">#{{ t['id'] }}</span></td>
+                        <td style="padding: 1rem;"><span class="badge-pill" style="border-color: #f59e0b; color: #fde047;">User #{{ t['user_id'] }}</span></td>
+                        <td style="padding: 1rem; font-weight: 600;">{{ t['author'] }}</td>
+                        <td style="padding: 1rem;">{{ t['title'] }}</td>
+                        <td style="padding: 1rem; color: #93c5fd;">{{ t['due_date'] or '-' }}</td>
+                        <td style="padding: 1rem;">
+                            {% if t['is_done'] %}
+                                <span class="badge-pill" style="background: rgba(16,185,129,0.2); color: #6ee7b7;">Done</span>
+                            {% else %}
+                                <span class="badge-pill" style="background: rgba(245,158,11,0.2); color: #fde047;">Open</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 1rem; color: var(--text-secondary); font-size: 0.85rem;">{{ t['created_at'] }}</td>
+                        <td style="padding: 1rem; text-align: center;">
+                            <form action="{{ url_for('admin_delete_todo', todo_id=t['id']) }}" method="POST" onsubmit="return confirm('Delete task #{{ t['id'] }}?');" style="margin: 0;">
+                                <button type="submit" class="btn btn-sm btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" style="padding: 1.5rem; text-align: center; color: var(--text-muted);">No to-dos recorded yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
